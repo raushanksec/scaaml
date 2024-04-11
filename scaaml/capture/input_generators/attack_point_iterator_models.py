@@ -341,3 +341,8 @@ class IteratorModel(BaseModel):
 
     def items(self) -> AttackPointIteratorT:
         return self.iterator_model.items()
+
+
+def build_attack_points_iterator(
+        configuration: Dict[str, Any]) -> IteratorModel:
+    return IteratorModel.model_validate({"iterator_model": configuration})

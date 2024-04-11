@@ -16,6 +16,7 @@
 import itertools
 import psutil
 import numpy as np
+from pydantic import ValidationError
 import pytest
 
 from scaaml.capture.input_generators import build_attack_points_iterator, LengthIsInfiniteException
@@ -30,7 +31,8 @@ def attack_point_iterator_constants(values, length: int = 16):
         "values": values
     }
     output = [
-        obj["key"] for obj in list(iter(build_attack_points_iterator(config)))
+        obj["key"]
+        for obj in list(iter(build_attack_points_iterator(config).items()))
     ]
     assert output == values
     assert len(values) == len(build_attack_points_iterator(config))
@@ -64,13 +66,13 @@ def test_single_key_in_iterator_constants():
         "length": 16,
         "values": values
     }
-    for constant in build_attack_points_iterator(config):
+    for constant in build_attack_points_iterator(config).items():
         assert list(constant.keys()) == ["key"]
 
 
 def test_attack_point_iterator_constants_no_values():
     config = {"operation": "constants", "name": "key", "length": 16}
-    with pytest.raises(TypeError):
+    with pytest.raises(ValidationError):
         build_attack_points_iterator(config)
 
 
@@ -90,7 +92,7 @@ def test_attack_point_iterator_constant_length_config():
         "values": values
     }
     iterator = build_attack_points_iterator(config)
-    for values in iterator._values:
+    for values in iterator.iterator_model.values:
         assert len(values) == config["length"]
 
 
@@ -98,7 +100,7 @@ def test_attack_point_iterator_constant_length_config_missing():
     values = [[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
               [15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0]]
     config = {"operation": "constants", "name": "key", "values": values}
-    with pytest.raises(TypeError):
+    with pytest.raises(ValidationError):
         build_attack_points_iterator(config)
 
 
@@ -117,7 +119,7 @@ def test_attack_point_iterator_constant_bad_list_length():
 
 def repeated_iteration(config):
     rep_iterator = build_attack_points_iterator(config)
-    assert list(iter(rep_iterator)) == list(iter(rep_iterator))
+    assert list(iter(rep_iterator.items())) == list(iter(rep_iterator.items()))
 
 
 def test_repeated_iteration_constants():
@@ -134,7 +136,7 @@ def test_repeated_iteration_constants():
 
 def test_attack_point_iterator_balanced_generator():
     config = {"operation": "balanced_generator", "name": "key", "length": 16}
-    output = list(iter(build_attack_points_iterator(config)))
+    output = list(iter(build_attack_points_iterator(config).items()))
     assert len(output) == 256
 
 
@@ -146,7 +148,7 @@ def test_attack_point_iterator_balanced_generator_all_kwargs():
         "bunches": 2,
         "elements": 3
     }
-    output = list(iter(build_attack_points_iterator(config)))
+    output = list(iter(build_attack_points_iterator(config).items()))
     assert isinstance(config["bunches"], int)
     assert isinstance(config["elements"], int)
     assert len(output) == config["bunches"] * config["elements"]
@@ -158,7 +160,7 @@ def test_attack_point_iterator_unrestricted_generator():
         "name": "key",
         "length": 16
     }
-    output = list(iter(build_attack_points_iterator(config)))
+    output = list(iter(build_attack_points_iterator(config).items()))
     assert len(output) == 256
 
 
@@ -170,7 +172,7 @@ def test_attack_point_iterator_balanced_generator_all_args():
         "bunches": 2,
         "elements": 3
     }
-    output = list(iter(build_attack_points_iterator(config)))
+    output = list(iter(build_attack_points_iterator(config).items()))
     assert len(output) == config["bunches"] * config["elements"]
 
 
@@ -188,7 +190,7 @@ def test_attack_point_iterator_balanced_generator_all_args_len():
         "bunches": 2,
         "elements": 3
     }
-    output = list(iter(build_attack_points_iterator(config)))
+    output = list(iter(build_attack_points_iterator(config).items()))
     assert len(output) == config["bunches"] * config["elements"]
     assert len(output) == len(build_attack_points_iterator(config))
 
@@ -201,7 +203,7 @@ def test_attack_point_iterator_unrestricted_generator_all_args_len():
         "bunches": 2,
         "elements": 3
     }
-    output = list(iter(build_attack_points_iterator(config)))
+    output = list(iter(build_attack_points_iterator(config).items()))
     assert len(output) == config["bunches"] * config["elements"]
     assert len(output) == len(build_attack_points_iterator(config))
 
@@ -217,7 +219,7 @@ def test_attack_point_iterator_repeat_default_value():
         }
     }
     output = build_attack_points_iterator(config)
-    assert output._repetitions == -1
+    assert output.iterator_model.repetitions == -1
 
 
 def test_attack_point_iterator_repeat_zero():
@@ -231,7 +233,7 @@ def test_attack_point_iterator_repeat_zero():
             "values": [[1, 2, 3]]
         }
     }
-    output = list(build_attack_points_iterator(config))
+    output = list(build_attack_points_iterator(config).items())
     assert output == []
 
 
@@ -261,9 +263,9 @@ def test_attack_point_iterator_repeat_one():
             "values": [[1, 2, 3]]
         }
     }
-    output = list(iter(build_attack_points_iterator(config)))
+    output = list(iter(build_attack_points_iterator(config).items()))
     assert output == list(
-        iter(build_attack_points_iterator(config["configuration"])))
+        iter(build_attack_points_iterator(config["configuration"]).items()))
 
 
 def test_attack_point_iterator_repeat_one_len():
@@ -292,10 +294,10 @@ def test_attack_point_iterator_repeat_two():
             "values": [[1, 2, 3]]
         }
     }
-    output = list(iter(build_attack_points_iterator(config)))
+    output = list(iter(build_attack_points_iterator(config).items()))
     assert output == list(
         iter(build_attack_points_iterator(
-            config["configuration"]))) * config["repetitions"]
+            config["configuration"]).items())) * config["repetitions"]
 
 
 def test_attack_point_iterator_repeat_two_len():
@@ -343,9 +345,9 @@ def test_attack_point_iterator_repeat_infinite():
     }
     count = 0
     for value1, value2 in zip(
-            build_attack_points_iterator(config),
+            build_attack_points_iterator(config).items(),
             itertools.cycle(
-                build_attack_points_iterator(config["configuration"]))):
+                build_attack_points_iterator(config["configuration"]).items())):
         if count > 4:
             break
         count += 1
@@ -365,9 +367,9 @@ def test_attack_point_iterator_repeat_infinite_minus_two():
     }
     count = 0
     for value1, value2 in zip(
-            build_attack_points_iterator(config),
+            build_attack_points_iterator(config).items(),
             itertools.cycle(
-                build_attack_points_iterator(config["configuration"]))):
+                build_attack_points_iterator(config["configuration"]).items())):
         if count > 4:
             break
         count += 1
@@ -386,7 +388,7 @@ def test_attack_point_iterator_repeat_infinite_no_values():
         }
     }
     output = []
-    for count, value in enumerate(build_attack_points_iterator(config)):
+    for count, value in enumerate(build_attack_points_iterator(config).items()):
         if count > 5:
             break
         output.append(value)
@@ -442,7 +444,7 @@ def test_repeat_memory():
     memory_threshold = memory_before_iterator * max_growth_factor
 
     long_iterable = build_attack_points_iterator(config)
-    long_iterator = iter(long_iterable)
+    long_iterator = iter(long_iterable.items())
     assert next(long_iterator) == {"key": [1]}
     assert python_process.memory_info().rss <= memory_threshold
     assert next(long_iterator) == {"key": [2]}
@@ -477,7 +479,7 @@ def test_attack_point_iterator_zip_same_lengths():
         }]
     }
     output = build_attack_points_iterator(config)
-    output_iter = list(iter(output))
+    output_iter = list(iter(output.items()))
     output_len = len(output)
 
     assert output_iter == [{
@@ -513,7 +515,7 @@ def test_attack_point_iterator_zip_different_lengths():
     }
 
     output = build_attack_points_iterator(config)
-    output_iter = list(iter(output))
+    output_iter = list(iter(output.items()))
     output_len = len(output)
 
     assert output_iter == [{
@@ -546,7 +548,7 @@ def test_attack_point_iterator_zip_different_lengths_length_zero():
     }
 
     output = build_attack_points_iterator(config)
-    output_iter = list(iter(output))
+    output_iter = list(iter(output.items()))
     output_len = len(output)
 
     assert output_iter == []
@@ -580,7 +582,7 @@ def test_attack_point_iterator_zip_infinite_and_finite():
     }
 
     output = build_attack_points_iterator(config)
-    output_iter = list(iter(output))
+    output_iter = list(iter(output.items()))
     output_len = len(output)
 
     assert output_iter == [{
@@ -627,7 +629,7 @@ def test_attack_point_iterator_zip_finite_and_infinite():
     }
 
     output = build_attack_points_iterator(config)
-    output_iter = list(iter(output))
+    output_iter = list(iter(output.items()))
     output_len = len(output)
 
     assert output_iter == [{
@@ -675,7 +677,8 @@ def test_attack_point_iterator_zip_infinite_and_infinite():
     output = build_attack_points_iterator(config)
     count = 0
     for value1, value2 in zip(
-            output, zip(itertools.cycle(values), itertools.cycle(values))):
+            output.items(), zip(itertools.cycle(values),
+                                itertools.cycle(values))):
         if count > 4:
             break
         count += 1
@@ -732,7 +735,7 @@ def test_attack_point_iterator_zip_three_operands():
     }
 
     output = build_attack_points_iterator(config)
-    output_iter = list(iter(output))
+    output_iter = list(iter(output.items()))
     output_len = len(output)
 
     assert output_iter == [{
@@ -771,7 +774,7 @@ def test_attack_point_iterator_zip_get_generated_keys():
     }
     output = build_attack_points_iterator(config)
 
-    assert output.get_generated_keys() == [
+    assert output.iterator_model.get_generated_keys() == [
         config["operands"][0]["name"], config["operands"][1]["name"],
         config["operands"][2]["name"]
     ]
@@ -780,7 +783,7 @@ def test_attack_point_iterator_zip_get_generated_keys():
 def test_attack_point_iterator_zip_no_operands():
     config = {"operation": "zip", "operands": []}
     output = build_attack_points_iterator(config)
-    output_iter = list(iter(output))
+    output_iter = list(iter(output.items()))
     output_len = len(output)
 
     assert output_iter == []
@@ -807,7 +810,7 @@ def test_attack_point_iterator_cartesian_product_two_operands():
     }
 
     output = build_attack_points_iterator(config)
-    output_iter = list(iter(output))
+    output_iter = list(iter(output.items()))
     output_len = len(output)
 
     assert output_iter == [
@@ -858,7 +861,7 @@ def test_attack_point_iterator_cartesian_product_three_operands():
 
     output = build_attack_points_iterator(config)
 
-    assert list(iter(output)) == [{
+    assert list(iter(output.items())) == [{
         "key": [1],
         "plaintext": [3],
         "three": [5]
@@ -914,7 +917,7 @@ def test_attack_point_iterator_cartesian_product_finite_and_no_values():
 
     output = build_attack_points_iterator(config)
 
-    assert list(iter(output)) == []
+    assert list(iter(output.items())) == []
     assert len(output) == 0
 
 
@@ -942,7 +945,7 @@ def test_attack_point_iterator_cartesian_product_infinite_and_no_values():
 
     output = build_attack_points_iterator(config)
 
-    assert list(iter(output)) == []
+    assert list(iter(output.items())) == []
     assert len(output) == 0
 
 
@@ -970,7 +973,7 @@ def test_attack_point_iterator_cartesian_product_finite_and_infinite():
     }
 
     with pytest.raises(LengthIsInfiniteException):
-        build_attack_points_iterator(config)
+        len(build_attack_points_iterator(config))
 
 
 def test_attack_point_iterator_cartesian_product_infinite_and_finite():
@@ -997,7 +1000,7 @@ def test_attack_point_iterator_cartesian_product_infinite_and_finite():
     }
 
     with pytest.raises(LengthIsInfiniteException):
-        build_attack_points_iterator(config)
+        len(build_attack_points_iterator(config))
 
 
 def test_attack_point_iterator_cartesian_product_infinite_and_infinite():
@@ -1028,7 +1031,7 @@ def test_attack_point_iterator_cartesian_product_infinite_and_infinite():
     }
 
     with pytest.raises(LengthIsInfiniteException):
-        build_attack_points_iterator(config)
+        len(build_attack_points_iterator(config))
 
 
 def test_attack_point_iterator_cartesian_product_no_operands():
